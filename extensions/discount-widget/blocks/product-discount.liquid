@@ -1,0 +1,19 @@
+{% assign rules = shop.metafields.volume_discount.rules.value | parse_json %}
+
+{% if rules and product %}
+  {% assign product_gid = "gid://shopify/Product/" | append: product.id %}
+  {% if rules.products contains product_gid %}
+    <div style="padding: 8px; border: 1px dashed #ccc;">
+      Buy {{ rules.minQty }}, get {{ rules.percentOff }}% off
+    </div>
+  {% endif %}
+{% endif %}
+
+{% schema %}
+{
+  "name": "Product Discount Message",
+  "target": "section",
+  "templates": ["product"],
+  "settings": []
+}
+{% endschema %}

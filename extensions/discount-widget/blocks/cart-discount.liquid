@@ -1,0 +1,16 @@
+{% assign rules = shop.metafields.volume_discount.rules | json %}
+
+{% if rules %}
+  <div>
+    Buy {{ rules.minQty }}, get {{ rules.percentOff }}% off
+  </div>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Cart Discount Message",
+  "target": "section",
+  "templates": ["cart"],
+  "settings": []
+}
+{% endschema %}
