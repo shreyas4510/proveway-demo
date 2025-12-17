@@ -1,6 +1,5 @@
 import {
   DiscountClass,
-  OrderDiscountSelectionStrategy,
   ProductDiscountSelectionStrategy,
   CartInput,
   CartLinesDiscountsGenerateRunResult,
@@ -11,80 +10,38 @@ export function cartLinesDiscountsGenerateRun(
   input: CartInput,
 ): CartLinesDiscountsGenerateRunResult {
   if (!input.cart.lines.length) {
-    return {operations: []};
+    return { operations: [] };
   }
 
-  const hasOrderDiscountClass = input.discount.discountClasses.includes(
-    DiscountClass.Order,
-  );
-  const hasProductDiscountClass = input.discount.discountClasses.includes(
-    DiscountClass.Product,
-  );
-
-  if (!hasOrderDiscountClass && !hasProductDiscountClass) {
-    return {operations: []};
+  const hasProductDiscountClass = input.discount.discountClasses.includes(DiscountClass.Product);
+  if (!hasProductDiscountClass) {
+    return { operations: [] };
   }
 
-  const maxCartLine = input.cart.lines.reduce((maxLine, line) => {
-    if (line.cost.subtotalAmount.amount > maxLine.cost.subtotalAmount.amount) {
-      return line;
-    }
-    return maxLine;
-  }, input.cart.lines[0]);
+  const candidates = input.cart.lines
+    .filter(line => line.quantity >= 2)
+    .map(line => ({
+      message: 'Buy 2, get 10% off',
+      targets: [{ cartLine: { id: line.id } }],
+      value: {
+        percentage: {
+          value: 10.0
+        }
+      }
+    }));
 
-  const operations = [];
-
-  if (hasOrderDiscountClass) {
-    operations.push({
-      orderDiscountsAdd: {
-        candidates: [
-          {
-            message: '10% OFF ORDER',
-            targets: [
-              {
-                orderSubtotal: {
-                  excludedCartLineIds: [],
-                },
-              },
-            ],
-            value: {
-              percentage: {
-                value: 10,
-              },
-            },
-          },
-        ],
-        selectionStrategy: OrderDiscountSelectionStrategy.First,
-      },
-    });
-  }
-
-  if (hasProductDiscountClass) {
-    operations.push({
-      productDiscountsAdd: {
-        candidates: [
-          {
-            message: '20% OFF PRODUCT',
-            targets: [
-              {
-                cartLine: {
-                  id: maxCartLine.id,
-                },
-              },
-            ],
-            value: {
-              percentage: {
-                value: 20,
-              },
-            },
-          },
-        ],
-        selectionStrategy: ProductDiscountSelectionStrategy.First,
-      },
-    });
+  if (candidates.length === 0) {
+    return { operations: [] };
   }
 
   return {
-    operations,
+    operations: [
+      {
+        productDiscountsAdd: {
+          candidates: candidates,
+          selectionStrategy: ProductDiscountSelectionStrategy.All
+        }
+      }
+    ]
   };
 }
