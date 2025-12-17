@@ -5,10 +5,10 @@ import {
   CartLinesDiscountsGenerateRunResult,
 } from '../generated/api';
 
-
 export function cartLinesDiscountsGenerateRun(
   input: CartInput,
 ): CartLinesDiscountsGenerateRunResult {
+
   if (!input.cart.lines.length) {
     return { operations: [] };
   }
@@ -18,17 +18,23 @@ export function cartLinesDiscountsGenerateRun(
     return { operations: [] };
   }
 
-  const candidates = input.cart.lines
-    .filter(line => line.quantity >= 2)
-    .map(line => ({
-      message: 'Buy 2, get 10% off',
-      targets: [{ cartLine: { id: line.id } }],
-      value: {
-        percentage: {
-          value: 10.0
-        }
+  const { products = [], minQty, percentOff } = JSON.parse(input.shop.metafield?.value || '{}') || {};
+  const filteredCandidates = input.cart.lines
+    .filter(line => (
+      line.merchandise.__typename === 'ProductVariant' &&
+      products.includes(line.merchandise.product.id) &&
+      line.quantity >= minQty
+    ));
+
+  const candidates = filteredCandidates.map(line => ({
+    message: `Buy ${minQty}, get ${percentOff}% off`,
+    targets: [{ cartLine: { id: line.id } }],
+    value: {
+      percentage: {
+        value: Number(percentOff)
       }
-    }));
+    }
+  }));
 
   if (candidates.length === 0) {
     return { operations: [] };

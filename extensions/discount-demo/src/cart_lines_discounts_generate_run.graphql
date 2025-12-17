@@ -8,6 +8,21 @@ query CartInput {
           amount
         }
       }
+      merchandise {
+        __typename,
+        ... on ProductVariant {
+          id
+          product {
+            id
+          }
+        }
+      }
+    }
+  }
+  shop {
+    metafield(namespace: "volume_discount", key: "rules") {
+      value
+      type
     }
   }
   discount {
