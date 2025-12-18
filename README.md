@@ -7,7 +7,6 @@ This Shopify app implements a **volume-based automatic discount** using **Shopif
 - Node.js 20.10 or higher
 - Shopify Partner account
 - Shopify dev store
-- Shopify CLI
 
 ## Install Shopify CLI:
 
