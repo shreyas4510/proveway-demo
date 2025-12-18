@@ -10,112 +10,111 @@ import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin } = await authenticate.admin(request);
-  const shopResponse = await admin.graphql(
-    `#graphql
+  try {
+    const { admin } = await authenticate.admin(request);
+
+    const shopResponse = await admin.graphql(`#graphql
       query {
-        shop {
-          id
-        }
-      }`
-  );
-  const shopData = await shopResponse.json();
-  const shopId = shopData.data.shop.id;
+        shop { id }
+      }`);
+    const shopData = await shopResponse.json();
+    const shopId = shopData?.data?.shop?.id;
 
-  if (!shopId) return { products: [], percentOff: 10 };
-  const metafieldResponse = await admin.graphql(
-    `#graphql
-      query GetVolumeDiscountConfig($namespace: String!, $key: String!) {
-        shop {
-          metafield(namespace: $namespace, key: $key) {
-            value
+    if (!shopId) return { selectedProducts: [], discount: 10 };
+
+    const metafieldResponse = await admin.graphql(
+      `#graphql
+        query GetVolumeDiscountConfig($namespace: String!, $key: String!) {
+          shop {
+            metafield(namespace: $namespace, key: $key) {
+              value
+            }
           }
-        }
-      }`,
-    {
-      variables: { namespace: "volume_discount", key: "rules" },
-    }
-  );
+        }`,
+      { variables: { namespace: "volume_discount", key: "rules" } }
+    );
 
-  const metafieldJson = await metafieldResponse.json();
-  const value = metafieldJson.data.shop.metafield?.value;
+    const metafieldJson = await metafieldResponse.json();
+    const value = metafieldJson.data.shop.metafield?.value;
 
-  if (!value) return { products: [], percentOff: 10 };
+    if (!value) return { selectedProducts: [], discount: 10 };
 
-  const parsed = JSON.parse(value);
-  return {
-    selectedProducts: parsed.products || [],
-    dicount: parsed.percentOff || 10,
-  };
+    const parsed = JSON.parse(value);
+
+    return {
+      selectedProducts: parsed.products || [],
+      discount: parsed.percentOff || 10,
+    };
+  } catch (err) {
+    console.error(err);
+    return { selectedProducts: [], discount: 10 };
+  }
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin } = await authenticate.admin(request);
+  try {
+    const { admin } = await authenticate.admin(request);
+    const body = await request.json();
+    const { products = [], percentOff = 10 } = body;
 
-  const body = await request.json();
-  const { products, percentOff } = body;
-  const shopResponse = await admin.graphql(
-    `#graphql
-      query {
-        shop {
-          id
-        }
-      }`
-  );
+    if (!products.length) {
+      return { success: false, errors: [{ message: "No products selected" }] };
+    }
 
-  const shopData = await shopResponse.json();
-  const shopId = shopData?.data?.shop?.id;
+    const shopResponse = await admin.graphql(`#graphql
+      query { shop { id } }`);
+    const shopData = await shopResponse.json();
+    const shopId = shopData?.data?.shop?.id;
 
-  if (!shopId) {
-    return {
-      success: false,
-      errors: [{ message: "Could not retrieve Shop ID. Please try again." }],
-    };
-  }
+    if (!shopId) {
+      return { success: false, errors: [{ message: "Could not retrieve Shop ID" }] };
+    }
 
-  const metafieldResponse = await admin.graphql(
-    `#graphql
+    const metafieldResponse = await admin.graphql(`#graphql
       mutation SaveDiscountConfig($metafields: [MetafieldsSetInput!]!) {
         metafieldsSet(metafields: $metafields) {
-          userErrors {
-            field
-            message
-          }
+          userErrors { field message }
         }
       }`,
-    {
-      variables: {
-        metafields: [
-          {
-            ownerId: shopId,
-            namespace: "volume_discount",
-            key: "rules",
-            type: "json",
-            value: JSON.stringify({
-              products,
-              minQty: 2,
-              percentOff: Number(percentOff),
-            }),
-          },
-        ],
-      },
-    }
-  );
+      {
+        variables: {
+          metafields: [
+            {
+              ownerId: shopId,
+              namespace: "volume_discount",
+              key: "rules",
+              type: "json",
+              value: JSON.stringify({
+                products,
+                minQty: 2,
+                percentOff: Number(percentOff),
+              }),
+            },
+          ],
+        },
+      }
+    );
 
-  const metafieldJson = await metafieldResponse.json();
-  return {
-    success: metafieldJson.data.metafieldsSet.userErrors.length === 0,
-    errors: metafieldJson.data.metafieldsSet.userErrors,
-  };
+    const metafieldJson = await metafieldResponse.json();
+    const errors = metafieldJson.data.metafieldsSet.userErrors;
+
+    return {
+      success: errors.length === 0,
+      errors: errors,
+    };
+  } catch (err) {
+    console.error(err);
+    return { success: false, errors: [{ message: err.message }] };
+  }
 };
 
 export default function Index() {
   const fetcher = useFetcher();
   const shopify = useAppBridge();
-  const { selectedProducts, dicount } = useLoaderData<typeof loader>();
+  const { selectedProducts, discount } = useLoaderData<typeof loader>();
 
   const [products, setProducts] = useState<string[]>(selectedProducts);
-  const [percentOff, setPercentOff] = useState<string>(String(dicount));
+  const [percentOff, setPercentOff] = useState<string>(String(discount));
 
   useEffect(() => {
     if (fetcher.data) {
