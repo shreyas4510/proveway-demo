@@ -2,9 +2,9 @@ api_version = "2025-04"
 
 [[extensions]]
 name = "t:name"
-handle = "discount-demo"
+handle = "discount-function"
 type = "function"
-uid = "3069a1f6-071c-3d94-6299-5a4f2740696421d1aba7"
+uid = "630829f6-2180-df6b-6a08-656aa871d3f31c3e344a"
 description = "t:description"
 
   [[extensions.targeting]]
